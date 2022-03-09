@@ -601,6 +601,30 @@ class PowerMeter:
     def __exit__(self, exit_type, value, traceback):
         self.stop_measure()
 
+    def get_thread_run_measure(self, interval=3600):
+        """
+
+        Parameters
+        ----------
+        interval (int)
+        """
+
+        while getattr(self.thread, "do_run", True):
+
+            time.sleep(interval)
+
+            self.__log_records(
+                self.power_gadget.record,  # must be a dict
+                self.gpu_power.record,  # must be a dict
+                algorithm=self.used_algorithm,
+                package=self.used_package,
+                data_type=self.used_data_type,
+                data_shape=self.used_data_shape,
+                algorithm_params=self.used_algorithm_params,
+                comments=self.used_comments,
+                step=self.used_step,
+            )
+
     def start_measure(
         self,
         package,
@@ -677,6 +701,10 @@ class PowerMeter:
         >>> power_meter.stop_measure()
 
         """
+
+        if self.thread and self.thread.is_alive():
+            self.stop_thread()
+
         self.gpu_power.start()
         self.power_gadget.start()
         self.__set_used_arguments(
@@ -688,6 +716,9 @@ class PowerMeter:
             comments=comments,
             step=step,
         )
+        if step == "run":
+            self.thread = threading.Thread(target=self.get_measure, args=())
+            self.thread.start()
 
     def stop_measure(self):
         """
@@ -747,6 +778,8 @@ class PowerMeter:
             comments=self.used_comments,
             step=self.used_step,
         )
+
+        self.stop_thread()
 
     def __record_data_to_server(self, info):
         headers = {"Content-Type": "application/json"}
