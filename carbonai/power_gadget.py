@@ -194,6 +194,7 @@ class PowerGadget(abc.ABC):
         """
 
     def stop_thread(self):
+
         self.thread.do_run = False
         self.thread.join()
 
@@ -215,9 +216,12 @@ class PowerGadget(abc.ABC):
         with process.oneshot():
             process_cpu_usage = process.cpu_percent(interval=interval)
             cpu_usage = psutil.cpu_percent()
-            process_cpu_usage = process_cpu_usage / (
-                cpu_usage * psutil.cpu_count()
-            )
+            if cpu_usage < 0.001:
+                process_cpu_usage = 0
+            else:
+                process_cpu_usage = process_cpu_usage / (
+                    cpu_usage * psutil.cpu_count()
+                )
             memory_global = psutil.virtual_memory()
             memory_usage = process.memory_full_info().rss / (
                 memory_global.total - memory_global.available

@@ -16,6 +16,8 @@ import logging
 import os
 import shutil
 import sys
+import threading
+import time
 import traceback
 import warnings
 from pathlib import Path
@@ -208,6 +210,8 @@ class PowerMeter:
         self.output_format = output_format
 
         self.logging_filename = PACKAGE_PATH / LOGGING_FILE
+
+        self.thread = None
 
     @staticmethod
     def __load_energy_mix_db():
@@ -601,6 +605,10 @@ class PowerMeter:
     def __exit__(self, exit_type, value, traceback):
         self.stop_measure()
 
+    def stop_thread(self):
+        self.thread.do_run = False
+        self.thread.join(timeout=2)
+
     def get_thread_run_measure(self, interval=3600):
         """
 
@@ -613,6 +621,10 @@ class PowerMeter:
 
             time.sleep(interval)
 
+            self.power_gadget.stop()
+            self.gpu_power.stop()
+            self.gpu_power.parse_log()
+
             self.__log_records(
                 self.power_gadget.record,  # must be a dict
                 self.gpu_power.record,  # must be a dict
@@ -624,12 +636,14 @@ class PowerMeter:
                 comments=self.used_comments,
                 step=self.used_step,
             )
+            self.power_gadget.start()
+            self.gpu_power.start()
 
     def start_measure(
         self,
         package,
         algorithm,
-        step="other",
+        step="run",
         data_type="",
         data_shape="",
         algorithm_params="",
@@ -716,8 +730,11 @@ class PowerMeter:
             comments=comments,
             step=step,
         )
+
         if step == "run":
-            self.thread = threading.Thread(target=self.get_measure, args=())
+            self.thread = threading.Thread(
+                target=self.get_thread_run_measure, args=()
+            )
             self.thread.start()
 
     def stop_measure(self):
@@ -764,6 +781,8 @@ class PowerMeter:
 
         >>> power_meter.stop_measure()
         """
+
+        self.stop_thread()
         self.power_gadget.stop()
         self.gpu_power.stop()
         self.gpu_power.parse_log()
@@ -778,8 +797,6 @@ class PowerMeter:
             comments=self.used_comments,
             step=self.used_step,
         )
-
-        self.stop_thread()
 
     def __record_data_to_server(self, info):
         headers = {"Content-Type": "application/json"}
@@ -851,9 +868,11 @@ class PowerMeter:
         comments="",
         step="other",
     ):
+
         co2_emitted = self.__aggregate_power(
             self.power_gadget.record, self.gpu_power.record
         )
+
         payload = {
             "Datetime": datetime.datetime.now().strftime(self.DATETIME_FORMAT),
             "Country": self.location_name,
