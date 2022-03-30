@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import shutil
+from socket import timeout
 import sys
 import threading
 import time
@@ -609,7 +610,7 @@ class PowerMeter:
         self.thread.do_run = False
         self.thread.join(timeout=2)
 
-    def get_thread_run_measure(self, interval=3600):
+    def get_thread_run_measure(self, interval=10):
         """
 
         Parameters
@@ -636,8 +637,13 @@ class PowerMeter:
                 comments=self.used_comments,
                 step=self.used_step,
             )
+
             self.power_gadget.start()
             self.gpu_power.start()
+
+        self.power_gadget.stop()
+        self.gpu_power.stop()
+        self.gpu_power.parse_log()
 
     def start_measure(
         self,
@@ -650,7 +656,7 @@ class PowerMeter:
         comments="",
     ):
         """
-        Starts mesuring the power consumption of a given sample of code
+        Starts measuring the power consumption of a given sample of code
 
         Parameters
         ----------
@@ -735,7 +741,9 @@ class PowerMeter:
             self.thread = threading.Thread(
                 target=self.get_thread_run_measure, args=()
             )
+            self.thread.name = "get_thread_run_measure"
             self.thread.start()
+            print(f"{self.thread.getName()} get_thread_run_measure start")
 
     def stop_measure(self):
         """
@@ -781,11 +789,13 @@ class PowerMeter:
 
         >>> power_meter.stop_measure()
         """
-
+        print(f"{self.thread.getName()} get_thread_run_measure stop")
         self.stop_thread()
+
         self.power_gadget.stop()
         self.gpu_power.stop()
         self.gpu_power.parse_log()
+
         self.__log_records(
             self.power_gadget.record,  # must be a dict
             self.gpu_power.record,  # must be a dict

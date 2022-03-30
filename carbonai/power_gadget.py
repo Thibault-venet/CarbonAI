@@ -353,10 +353,13 @@ class PowerGadgetMac(PowerGadget):
         self.thread = threading.Thread(
             target=self.get_power_consumption, args=()
         )
+        self.thread.name = 'get_power_consumption'
         self.thread.start()
+        print(f"{self.thread.getName()} get_power_consumption start")
 
     def stop(self):
         LOGGER.info("stoping CPU power monitoring ...")
+        print(f"{self.thread.getName()} get_power_consumption stop")
         self.stop_thread()
         self.record = pd.DataFrame.from_records(self.power_draws)
         self.record = self.record.sum(axis=0)
@@ -574,6 +577,7 @@ class PowerGadgetLinuxRAPL(PowerGadgetLinux):
         self.__append_energy_usage(current_process, interval=interval)
         while getattr(self.thread, "do_run", True):
             self.__append_energy_usage(current_process, interval=interval)
+            print
         self.__append_energy_usage(current_process, interval=interval)
 
     def start(self):
